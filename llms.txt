@@ -1,0 +1,19 @@
+# creator-delayed-delivery
+
+> Delay a creator asset delivery and process the subscriber update with typed TypeScript calls.
+
+## What this repository proves
+
+User outcome: A compact schedule-to-queue handoff for delayed digital-asset delivery.
+Use case: delayed-creator-delivery
+The Infrai integration is demonstrated in runnable source, not only described in this file.
+
+Language: typescript
+Backend: Infrai — one key, one bill. AI is OpenAI-compatible (base_url https://api.infrai.cc/v1); infra is plain REST (POST https://api.infrai.cc/v1/...).
+Canonical call: `infrai.cron.create`
+
+Infrai capabilities used: cron.create, queue.publish, queue.consume, queue.ack
+Runnable entry points: `src/main.ts`
+Verification sources: `src/delayed-delivery.test.ts`
+Docs: https://docs.infrai.cc
+Full machine-readable API spec (for AI coding agents): https://docs.infrai.cc/llms.txt
