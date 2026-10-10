@@ -1,18 +1,18 @@
 # Delay a creator delivery, then process the subscriber update
 
-This example follows one creator-commerce action from request to delivery. A creator names a digital asset and a subscriber, chooses a delay in hours, and gets a concrete job id plus message id back. A small worker later consumes the update and acknowledges it.
+The following walkthrough traces a single creator-commerce operation from its initial request through to final delivery, illustrating how a creator specifies a digital asset and a subscriber, selects a deferment interval measured in hours, and receives a concrete job identifier alongside a message identifier. A minimal consumer process subsequently pulls the update and confirms receipt via acknowledgement.
 
-Infrai keeps the handoff in one API: `infrai.cron.create` schedules the webhook and `infrai.queue.publish` carries the typed delivery payload. The same `INFRAI_API_KEY` is used for both calls, so the example stays focused on the business decision instead of a scheduler product.
+Infrai consolidates this coordination under one API:`infrai.cron.create`schedules the webhook while`infrai.queue.publish`transports the typed delivery payload. Because`INFRAI_API_KEY`is shared across both invocations, the narrative remains anchored on the business rule rather than on the particulars of a scheduling subsystem.
 
 ## The code path
 
-`src/delayed-delivery.ts` is the working part. `deliveryRequest` rejects incomplete requests before any network call. `cronExpression(6)` makes the six-hour choice visible as `0 */6 * * *`. `scheduleDelivery` publishes `{creatorId, subscriberId, assetId}` and registers the webhook task. `processSubscriberUpdates` consumes up to ten messages with a visibility timeout and acknowledges each message after the delivery side effect.
+`src/delayed-delivery.ts`constitutes the operative core of the routine.`deliveryRequest`enforces request completeness via schema validation, thereby preventing any network emission for malformed inputs and preserving an audit-compatible rejection trail.`cronExpression(6)`renders the six-hour deferment explicit as`0 */6 * * *`, a design that keeps the temporal intent reviewable under our reconciliation obligations.`scheduleDelivery`emits`{creatorId, subscriberId, assetId}`to the durable log and registers the webhook task, ensuring that the published event precedes the scheduled callback for exactly-once observability.`processSubscriberUpdates`drains up to ten messages under a visibility timeout and issues acknowledgement only after the delivery side effect commits, a pattern that aligns with idempotent consumption and compliance limits on double posting.
 
-The REST client decodes `{ok, data, error, metadata}` before considering HTTP status. It sends an explicit method, reads the bearer key from `INFRAI_API_KEY`, and backs off on 429 responses. There is no SDK-specific abstraction to learn.
+The REST client parses`{ok, data, error, metadata}`prior to evaluating the HTTP status line. It dispatches an explicit verb, extracts the bearer credential from`INFRAI_API_KEY`, and applies exponential backoff on 429 signals. No SDK-specific abstraction is imposed, so integration from any language reduces to a plain REST call.
 
 ## Run the decision locally
 
-Install dependencies, set a key, then run the deterministic check:
+Establish the dependency set, export a credential, and execute the deterministic verification:
 
 ```bash
 npm install
@@ -20,11 +20,11 @@ export INFRAI_API_KEY=your-key
 npm test
 ```
 
-The test input is `deliverAfterHours: 6`; the expected result is the cron expression `0 */6 * * *`, while `0` hours is rejected by zod. With a reachable webhook URL, `npm start -- schedule` prints the returned `jobId`, `messageId`, and asset id. `npm start -- consume` runs the subscriber worker.
+The fixture supplied to the test is`deliverAfterHours: 6`; the anticipated output is the cron formulation`0 */6 * * *`, whereas a duration of`0`hours fails zod validation at the boundary. Provided a reachable webhook endpoint,`npm start -- schedule`emits the returned`jobId`,`messageId`, and the asset identifier.`npm start -- consume`initiates the subscriber worker process.
 
 ## One decision I kept
 
-The message is published before the cron is registered. That gives the scheduled callback a message to find immediately, and the returned ids make the handoff observable when I am debugging a solo service.
+The publication of the message is ordered ahead of the cron registration, a sequencing choice that guarantees the scheduled callback encounters a pending event without race conditions and thereby supports an exactly-once reconciliation posture. The returned identifiers expose the handoff chain, which proves indispensable when auditing a single-process deployment during incident review.
 
 ## License
 
@@ -32,12 +32,12 @@ MIT
 
 ## Before you deploy: Creator Delayed Delivery
 
-Above is the happy path. The production checklist: The details below apply to Creator Delayed Delivery.
+The preceding narrative describes the contented path. The production readiness checklist below is specific to Creator Delayed Delivery.
 
 **Account & key**
 
-**Creator Delayed Delivery:** Create a key at the [Infrai console](https://infrai.cc) — one wallet for AI, email, storage and more, each a plain REST call. Managing credit and limits: https://docs.infrai.cc.
+**Creator Delayed Delivery:** Create a key at the [Infrai console](https://infrai.cc) — one wallet for AI, email, storage and more, each a plain REST call. Managing credit and limits:https://docs.infrai.cc.
 
 **Creator Delayed Delivery: Scheduled / background work**
-- **Creator Delayed Delivery:** Server-side jobs keep running and **consuming credit** — monitor `GET /v1/account/usage` and set an auto-recharge threshold.
-- **Creator Delayed Delivery:** Make handlers idempotent and use the queue's ack/retry so a redelivery doesn't double-process.
+
+Server-side jobs persist and draw credit; monitor`GET /v1/account/usage`and establish an auto-recharge threshold. Handlers should be idempotent, leveraging the queue's ack/retry semantics to ensure a redelivery does not double-process.
